@@ -19,6 +19,8 @@ set(SETUP_LDFLAGS "-L$<TARGET_FILE_DIR:Calcite> -L$<TARGET_FILE_DIR:IR> -L$<TARG
 set(SETUP_FLAGS -g -f -I ${CMAKE_CURRENT_SOURCE_DIR})
 add_custom_target(pyhdk ALL
     COMMAND cd ${CMAKE_CURRENT_BINARY_DIR} && LDFLAGS=${SETUP_LDFLAGS} ${Python3_EXECUTABLE} ${SETUP_PY} build_ext ${SETUP_FLAGS}
+    COMMAND cd ${CMAKE_CURRENT_BINARY_DIR} && LDFLAGS=${SETUP_LDFLAGS} ${Python3_EXECUTABLE} ${SETUP_PY} bdist bdist_wheel
+    #COMMAND cd ${CMAKE_CURRENT_BINARY_DIR} && LDFLAGS=${SETUP_LDFLAGS} ${Python3_EXECUTABLE} ${SETUP_PY} bdist
     DEPENDS Calcite ${pydeps}
 )
 
@@ -29,3 +31,4 @@ add_custom_target(pyhdk-install
 
 string(REPLACE ";" " " SETUP_FLAGS_STR "${SETUP_FLAGS}")
 install(CODE "execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMAND bash -c \"LDFLAGS='${SETUP_LDFLAGS}' ${Python3_EXECUTABLE} ${SETUP_PY} build_ext ${SETUP_FLAGS_STR} install\")")
+#install(CODE "execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMAND bash -c \"LDFLAGS='${SETUP_LDFLAGS}' ${Python3_EXECUTABLE} ${SETUP_PY} bdist bdist_wheel --universal\")")

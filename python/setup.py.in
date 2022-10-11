@@ -16,7 +16,14 @@
 # limitations under the License.
 
 from Cython.Build import cythonize
-from distutils.core import setup, Extension
+from distutils.core import setup, Extension, Distribution
+
+import shutil
+from os.path import join as pjoin
+
+#from setuptools import setup, Extension, Distribution
+
+from Cython.Distutils import build_ext as _build_ext
 
 import os
 import numpy as np
@@ -84,18 +91,75 @@ storage = Extension(
     extra_compile_args=["-std=c++17", "-D__STDC_FORMAT_MACROS"],
 )
 
+class BinaryDistribution(Distribution):
+    def has_ext_modules(foo):
+        return True
+
+
+class build_ext(_build_ext):
+    _found_names = ()
+
+
+    def _get_build_dir(self):
+        # Get the package directory from build_py
+        build_py = self.get_finalized_command('build_py')
+        return build_py.get_package_dir('pyhdk')
+
+    def build_extensions(self):
+       # numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
+        print("Calling build_extensions func")
+        self.extensions = [common, execute, sql, storage]
+        self.cython_directives = {
+            "c_string_type": "str",
+            "c_string_encoding": "utf8",
+            "language_level": "3",
+        }
+        self.cython_include_dirs=["@CMAKE_CURRENT_SOURCE_DIR@"]
+
+        _build_ext.build_extensions(self)
+
+    def run(self):
+        #pyarrow_cpp_home = pjoin(os.getcwd(), 'build', 'dist')
+        #self._run_cmake_pyarrow_cpp(pyarrow_cpp_home)
+        #self._run_cmake(pyarrow_cpp_home)
+        build_dir="@CMAKE_BINARY_DIR@"
+        print("Build dir: ", build_dir)
+        bin_dir = pjoin(build_dir, 'bin')
+        omniscidb_dir = pjoin(build_dir, 'omniscidb')
+        #dist_home = pjoin("@CMAKE_CURRENT_BINARY_DIR@", 'build')
+        #print("Python build dir:", dist_home)
+        #build_dir = self._get_build_dir()
+        #print("Pyhdk build dir:", build_dir)
+        build_cmd = self.get_finalized_command('build')
+        print("Pyhdk build cmd:", build_cmd.build_lib)
+        real_build_dir = pjoin("@CMAKE_CURRENT_BINARY_DIR@", build_cmd.build_lib, "pyhdk")
+        print("Real build path:", real_build_dir)
+        shutil.copytree(bin_dir, pjoin(real_build_dir, "bin"), dirs_exist_ok=True)
+        #shutil.copy(omniscidb_dir, pjoin(real_build_dir, "lib"))
+        print("Calling run func")
+        _build_ext.run(self)
+
+
 setup(
     name="pyhdk",
     version="0.1",
     packages=["pyhdk"],
+    distclass=BinaryDistribution,
+    ext_modules=[Extension('__dummy__', sources=[])],
+    cmdclass={
+        'build_ext': build_ext
+    },
     package_dir={"pyhdk": "@CMAKE_CURRENT_SOURCE_DIR@/pyhdk"},
-    ext_modules=cythonize(
-        [common, execute, sql, storage],
-        compiler_directives={
-            "c_string_type": "str",
-            "c_string_encoding": "utf8",
-            "language_level": "3",
-        },
-        include_path=["@CMAKE_CURRENT_SOURCE_DIR@"],
-    ),
+    #package_dir={"pyhdk": "/localdisk/izamyati/tmp/pypi_install"},
+    #package_data={"pyhdk": ["/localdisk/izamyati/tmp/pypi_install/lib/*.so", "/localdisk/izamyati/tmp/pypi_install/bin/*", "/localdisk/izamyati/tmp/pypi_install/QueryEngine/*"]},
+    #ext_modules=cythonize(
+    #    [common, execute, sql, storage],
+    #    compiler_directives={
+    #        "c_string_type": "str",
+    #        "c_string_encoding": "utf8",
+    #        "language_level": "3",
+    #    },
+    #    include_path=["@CMAKE_CURRENT_SOURCE_DIR@"],
+    #),
+    #options={'bdist_wheel':{'universal':True}},
 )
