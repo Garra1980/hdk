@@ -18,7 +18,7 @@
 from Cython.Build import cythonize
 from distutils.core import setup, Extension, Distribution
 
-import shutil
+import glob, shutil
 from os.path import join as pjoin
 
 #from setuptools import setup, Extension, Distribution
@@ -119,23 +119,32 @@ class build_ext(_build_ext):
         _build_ext.build_extensions(self)
 
     def run(self):
-        #pyarrow_cpp_home = pjoin(os.getcwd(), 'build', 'dist')
-        #self._run_cmake_pyarrow_cpp(pyarrow_cpp_home)
-        #self._run_cmake(pyarrow_cpp_home)
         build_dir="@CMAKE_BINARY_DIR@"
-        print("Build dir: ", build_dir)
         bin_dir = pjoin(build_dir, 'bin')
         omniscidb_dir = pjoin(build_dir, 'omniscidb')
-        #dist_home = pjoin("@CMAKE_CURRENT_BINARY_DIR@", 'build')
-        #print("Python build dir:", dist_home)
-        #build_dir = self._get_build_dir()
-        #print("Pyhdk build dir:", build_dir)
         build_cmd = self.get_finalized_command('build')
-        print("Pyhdk build cmd:", build_cmd.build_lib)
         real_build_dir = pjoin("@CMAKE_CURRENT_BINARY_DIR@", build_cmd.build_lib, "pyhdk")
-        print("Real build path:", real_build_dir)
+        # setting up folder layout for packaging
+        os.makedirs(pjoin(real_build_dir, "lib"), exist_ok = True)
+        os.makedirs(pjoin(real_build_dir, "QueryEngine"), exist_ok = True)
+        # copying calcite.jar
         shutil.copytree(bin_dir, pjoin(real_build_dir, "bin"), dirs_exist_ok=True)
-        #shutil.copy(omniscidb_dir, pjoin(real_build_dir, "lib"))
+        # copying all .so files from all omniscidb sub folders
+        omnisci_db_subdirs = os.listdir(omniscidb_dir)
+        for sub_dir in omnisci_db_subdirs:
+              print("Sub dir:", sub_dir)
+              if os.path.isdir(pjoin(omniscidb_dir, sub_dir)):
+                 so_files = glob.iglob(pjoin(omniscidb_dir, sub_dir, "*.so"))
+                 print("So files path:", pjoin(omniscidb_dir, sub_dir, "*.so"))
+                 for so_file in so_files:
+                   print("So file:", so_file)
+                   shutil.copy(so_file, pjoin(real_build_dir, "lib", os.path.basename(so_file)))
+
+        # copying necessary helper files from omniscidb/QueryEngine folder
+        shutil.copy(pjoin(omniscidb_dir, "QueryEngine", "ExtensionFunctions.ast"), pjoin(real_build_dir, "QueryEngine", "ExtensionFunctions.ast"))
+        shutil.copy(pjoin(omniscidb_dir, "QueryEngine", "OmniSciTypes.h"), pjoin(real_build_dir, "QueryEngine", "OmniSciTypes.h"))
+        shutil.copy(pjoin(omniscidb_dir, "QueryEngine", "RuntimeFunctions.bc"), pjoin(real_build_dir, "QueryEngine", "RuntimeFunctions.bc"))
+
         print("Calling run func")
         _build_ext.run(self)
 
